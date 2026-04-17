@@ -3,7 +3,7 @@ import pandas as pd
 import mlflow
 
 
-MODEL_DIR = "mlruns/1/models/m-350da676ed7b42818b2c80b74d5678cb/artifacts"
+MODEL_DIR = "/app/model"
 
 # Load pretrained model
 try:
