@@ -3,34 +3,46 @@ import pandas as pd
 import mlflow
 
 
+# For local server
+# MODEL_DIR = "mlruns/1/models/m-350da676ed7b42818b2c80b74d5678cb/artifacts"
+
+# For deployment
 MODEL_DIR = "/app/model"
+
+FEATURE_COLUMNS_PATH = os.path.join(MODEL_DIR, "feature_columns.txt")
 
 # Load pretrained model
 try:
-    # Load the trained XGBoost model in MLflow pyfunc format
-    # This ensures compatibility regardless of the underlying ML library
     model = mlflow.pyfunc.load_model(MODEL_DIR)
-    print(f"✅ Model loaded successfully from {MODEL_DIR}")
+    print(f"Model loaded successfully from {MODEL_DIR}")
 except Exception as e:
-    print(f"❌ Failed to load model from {MODEL_DIR}: {e}")
-    # Fallback for local development (OPTIONAL)
+    print(f"Failed to load model from {MODEL_DIR}: {e}")
     try:
-        # Try loading from local MLflow tracking
         import glob
         local_model_paths = glob.glob("./mlruns/*/*/artifacts/model")
         if local_model_paths:
             latest_model = max(local_model_paths, key=os.path.getmtime)
             model = mlflow.pyfunc.load_model(latest_model)
             MODEL_DIR = latest_model
-            print(f"✅ Fallback: Loaded model from {latest_model}")
+            FEATURE_COLUMNS_PATH = os.path.join(MODEL_DIR, "feature_columns.txt")
+            print(f"Fallback: Loaded model from {latest_model}")
         else:
             raise Exception("No model found in local mlruns")
     except Exception as fallback_error:
         raise Exception(f"Failed to load model: {e}. Fallback failed: {fallback_error}")
 
+# Load saved training feature columns
+try:
+    with open(FEATURE_COLUMNS_PATH, "r", encoding="utf-8") as f:
+        FEATURE_COLUMNS = [line.strip() for line in f if line.strip()]
+    print(f"Loaded {len(FEATURE_COLUMNS)} feature columns")
+except Exception as e:
+    raise Exception(f"Failed to load feature columns from {FEATURE_COLUMNS_PATH}: {e}")
+
 # Declare binary and numerical columns
 BINARY_MAP = {
     "gender": {"Female": 0, "Male": 1},
+    "SeniorCitizen": {0: 0, 1: 1, "0": 0, "1": 1, "No": 0, "Yes": 1},
     "Partner": {"No": 0, "Yes": 1},
     "Dependents": {"No": 0, "Yes": 1},  
     "PhoneService": {"No": 0, "Yes": 1},
@@ -76,7 +88,7 @@ def _serve_transform(df: pd.DataFrame) -> pd.DataFrame:
     if len(bool_cols) > 0:
         df[bool_cols] = df[bool_cols].astype(int)
 
-
+    df = df.reindex(columns=FEATURE_COLUMNS, fill_value=0)
 
     return df
 

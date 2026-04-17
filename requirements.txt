@@ -13,3 +13,4 @@ seaborn
 lightgbm
 xgboost
 optuna
+gradio
